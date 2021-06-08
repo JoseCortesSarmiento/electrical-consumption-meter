@@ -87,11 +87,19 @@ class GenerateChart extends React.PureComponent {
         d3.select(this.refs.monthView).selectAll('*').remove();
         d3.select(this.refs.weekView).selectAll('*').remove();
 
-        if(this.state.view == 'Mensual'){
+        if(this.state.view === 'Mensual'){
             let response = await fetch(`http://localhost:3001/groups/devicesMonthly?month=${this.state.selectedMonth.format('YYYY-MM')}&room=${this.state.room}`);
-
-            if(response.status == 200){
+            //Second Line
+            //let response_2= await fetch(`http://localhost:3001/groups/optMonthly?month=${this.state.selectedMonth.format('YYYY-MM')}&room=${this.state.room}`);
+            
+            let response_2= await fetch(`http://localhost:3001/groups/devicesMonthly?month=${this.state.selectedMonth.format('YYYY-MM')}&room=1`);
+            if(response.status === 200){
                 response = await response.json();
+
+                response_2 = await response_2.json(); //Second Line
+
+                //response_3 = await response_3.json();
+                //console.log(response_3);
                 this.setState({
                     status: true
                 });
@@ -99,7 +107,7 @@ class GenerateChart extends React.PureComponent {
                 const data = response.data.map((point) => {
                     let consumption = 0;
                     Object.keys(point).forEach((type) => {
-                        if(type != 'day'){
+                        if(type !== 'day'){
                             consumption += point[type];
                         }
                     });
@@ -109,6 +117,21 @@ class GenerateChart extends React.PureComponent {
                         consumption
                     };
                 });
+
+                const second_data = response_2.data.map((point) => {
+                    let consumption = 0;
+                    Object.keys(point).forEach((type) => {
+                        if(type !== 'day'){
+                            consumption += point[type];
+                        }
+                    });
+
+                    return {
+                        day: point.day,
+                        consumption
+                    };
+                }); //Second Line
+
                 const columns = ['day', 'consumption'];
                 const series = columns.slice(1).map((key) => {
                     return data.map(({[key]: value, day}) => {
@@ -120,6 +143,16 @@ class GenerateChart extends React.PureComponent {
                     });
                 });
 
+                const serie_2 = columns.slice(1).map((key) => {
+                    return second_data.map(({[key]: value, day}) => {
+                        return {
+                            key,
+                            day,
+                            value
+                        }
+                    });
+                });//Second Line
+                
                 const margin = {
                     top: 30,
                     right: 50, 
@@ -159,6 +192,8 @@ class GenerateChart extends React.PureComponent {
                 });
 
                 const serie = svg.append('g').selectAll('g').data(series).join('g');
+                const series_2 = svg.append('g').selectAll('g').data(serie_2).join('g'); //Second Line
+
                 serie.append('path').attr('fill', 'none').attr('stroke', (point) => {
                     return z(point[0].key);
                 }).attr('stroke-width', 1.5).attr('d', d3.line().x((point) => {
@@ -167,6 +202,14 @@ class GenerateChart extends React.PureComponent {
                     return y(point.value);
                 }));
                 
+                series_2.append('path').attr('fill', 'none').attr('stroke', (point) => {
+                    return z(point[0].key);
+                }).attr('stroke-width', 1.5).attr('d', d3.line().x((point) => {
+                    return x(point.day);
+                }).y((point) => {
+                    return y(point.value);
+                })); //Second Line
+
                 const that = this;
                 serie.append('g').attr('font-family', 'sans-serif').attr('font-size', 10).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round').attr('text-anchor', 'middle').selectAll('text').data((point) => {
                     return point;
@@ -204,24 +247,71 @@ class GenerateChart extends React.PureComponent {
                     const day = domain[d3.bisect(rangePoints, xPosition)];
                     
                     that.buildDayChart(response.data.filter((point) => {
-                        return point.day == day;
+                        return point.day === day;   
                     }), response.columns);
-                });
+                }); 
 
+                series_2.append('g').attr('font-family', 'sans-serif').attr('font-size', 10).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round').attr('text-anchor', 'middle').selectAll('text').data((point) => {
+                    return point;
+                }).join('circle').attr('cx', (point) => {
+                    return x(point.day);
+                }).attr('cy', (point) => {
+                    return y(point.value);
+                }).attr('r', (point, index) => {
+                    return 5;
+                }).style('fill', '#000000').on('mouseover', function(event){
+                    d3.select(this).transition().duration(200).style('fill', '#d30715');
+
+                    const [xPosition, yPosition] = d3.pointer(event, this);
+                    const domain = x.domain();
+                    const range = x.range();
+                    const rangePoints = d3.range(range[0], range[1], x.step());
+                    const point = {};
+                    point.day = domain[d3.bisect(rangePoints, xPosition)];
+                    point.consumption = y.invert(yPosition);
+
+                    tooltip.append('text').attr('id', 'label').text(Math.round(point.consumption)).attr('y', yPosition - 12).attr('x', xPosition);
+                    tooltip.append('line').attr('id', 'path').attr('x1', xPosition).attr('y1', yPosition).attr('x2', xPosition).attr('y2', height - margin.bottom).attr('stroke', 'black').attr('stroke-dasharray', ('3, 3'));
+                }).on('mouseout', function(event){
+                    d3.select(this).transition().duration(500).style('fill', '#fcb0b5');
+
+                    tooltip.selectAll('#label').remove();
+                    tooltip.selectAll('#path').remove();
+                }).on('click', function(event){
+                    event.stopPropagation();
+
+                    const xPosition = d3.pointer(event, this)[0]
+                    const domain = x.domain();
+                    const range = x.range();
+                    const rangePoints = d3.range(range[0], range[1], x.step());
+                    const day = domain[d3.bisect(rangePoints, xPosition)];
+                    
+                    that.buildDayChart(response.data.filter((point) => {
+                        return point.day === day;   
+                    }), response.columns);
+                });   //Second Line
+ 
                 this.buildLegend(response.data, response.columns.slice(1));
-            }else{
+            }else{ 
                 this.setState({
                     status: false
                 });
             }
         }else{
+            console.log(this.state.selectedWeek.format('YYYY-MM-DD'))
             let response = await fetch(`http://localhost:3001/groups/devicesWeekly?week=${this.state.selectedWeek.format('YYYY-MM-DD')}&room=${this.state.room}`);
-            
-            if(response.status == 200){
+            console.log("response was %O", response);  
+
+            if(response.status === 200){
+                console.log("Hola entre al if de weekly ");
+
                 response = await response.json();
+                
+                console.log("Todo bien");
                 this.setState({
                     status: true
                 });
+                console.log("Todo bien");
 
                 const {data, columns} = response;
                 const series = d3.stack().keys(columns.slice(1))(data).map((point) => {
@@ -286,6 +376,7 @@ class GenerateChart extends React.PureComponent {
 
                 this.buildLegend(data, columns.slice(1));
             }else{
+                console.log(response.status + "Say what");
                 this.setState({
                     status: false
                 });
@@ -350,7 +441,7 @@ class GenerateChart extends React.PureComponent {
 
         data.forEach((point) => {
             Object.keys(point).forEach((type) => {
-                if(type != 'day'){
+                if(type !== 'day'){
                     if(!consumptionByType[type]){
                         consumptionByType[type] = {};
                     }
@@ -386,15 +477,20 @@ class GenerateChart extends React.PureComponent {
 
     async buildRoomChart(){
         d3.select(this.refs.roomView).selectAll('*').remove();
-
+        console.log("Chart " + this.state.view);
         let data = [];
-        if(this.state.view == 'Mensual'){
+        
+        if(this.state.view === "Mensual"){
+            console.log("Mensual entro");
             let response = await fetch(`http://localhost:3001/groups/roomsMonthly?month=${this.state.selectedMonth.format('YYYY-MM')}`);
             data = await response.json();
+            console.log("Mensual happens");
         }else{
             let response = await fetch(`http://localhost:3001/groups/roomsWeekly?week=${this.state.selectedWeek.format('YYYY-MM-DD')}`);
             data = await response.json();
+            console.log("Semanal happens");
         }
+        
 
         const margin = {
             top: 30,
@@ -499,13 +595,13 @@ class GenerateChart extends React.PureComponent {
                 <div className="chart__date">
                     <SingleSelect className="chart__view-selector" label="Selecciona una vista" value={this.state.view} options={['Mensual', 'Semanal']} onChange={(view) => this.handleViewSelection(view)}/>
                     <MuiPickersUtilsProvider className="chart__date-selector" utils={MomentUtils} locale={"es"}>
-                        {this.state.view == 'Mensual' ? 
+                        {this.state.view === 'Mensual' ?   
                             <DatePicker openTo="month" views={["year", "month"]} label="Selecciona un mes" value={this.state.selectedMonth} onChange={(month) => this.handleMonthSelection(month)}/>
                             :
                             <DatePicker label="Selecciona una semana" value={this.state.selectedWeek} onChange={(week) => this.handleWeekSelection(week)} renderDay={this.renderWrappedWeekDay} labelFunc={this.formatWeekSelectLabel}/>
                         }
                     </MuiPickersUtilsProvider>
-                    <SingleSelect className="chart__room-selector" label="Selecciona un escenario" value={this.state.room} options={[{label: 'Todos', value: -1}].concat(this.state.rooms)} onChange={(room) => this.handleRoomSelection(room)} style={this.state.tab == 0 ? {visibility: 'visible'} : {visibility: 'hidden'}}/>
+                    <SingleSelect className="chart__room-selector" label="Selecciona un escenario" value={this.state.room} options={[{label: 'Todos', value: -1}].concat(this.state.rooms)} onChange={(room) => this.handleRoomSelection(room)} style={this.state.tab === 0 ? {visibility: 'visible'} : {visibility: 'hidden'}}/>
                 </div>
                 <Tabs justified={true} onChange={(tab) => this.onTabChange(tab)}>
                     <Tab value="pane-1" label="Dispositivos">
@@ -516,7 +612,7 @@ class GenerateChart extends React.PureComponent {
                         </div>
                         :
                         <div>
-                            {this.state.view == 'Mensual' ?
+                            {this.state.view === 'Mensual' ?
                             <div className="chart">
                                 <div ref="monthView" className="chart__view"></div>
                                 <div ref="dayView" className="chart__day"></div>
@@ -530,7 +626,6 @@ class GenerateChart extends React.PureComponent {
                         </div>}
                     </Tab>
                     <Tab value="pane-2" label="Escenarios">
-                        
                     <div className="chart">
                         <div ref="roomView" className="chart__view"></div>
                     </div>

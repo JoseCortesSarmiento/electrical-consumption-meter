@@ -1,10 +1,11 @@
-import React, {Component} from 'react';
+import React from 'react';
 import ReactDOM from'react-dom';
 import PropTypes from 'prop-types';
 import AddUser from './AddUser';
 import User from './User';
 import StageList from './StageList';
 import { connect } from 'react-redux';
+import Header from '../components/layout/Header';
 
 const textArray = ['dispositivos', 'cuartos', 'espacios', 'usuarios'];
 
@@ -116,6 +117,7 @@ class ProfileComponent extends React.Component{
           <div>
             <img className="icon-decor" src={require('../icons/decor.png')} alt="Icon"/>
           </div>
+          <Header/>
           <div className="users-title">
           <AddUser /> 
           </div>

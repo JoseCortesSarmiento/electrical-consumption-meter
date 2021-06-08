@@ -3,6 +3,7 @@ import ReactDOM from'react-dom';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import Profile from '../components/Profile';
+import Header from '../components/layout/Header';
 
 export default function Homepage({ user: { id, type } }) {
 

@@ -1,5 +1,4 @@
 
---This information HAVE TO be in the DB to be connected to the front end.
 
 -- ADMINISTRADOR
 INSERT INTO admin (id_admin, name, email, password) VALUES(1,"Admin","admin@gmail.com", "password_test");
@@ -33,7 +32,9 @@ INSERT INTO `type` (`name_type`) VALUES
 ('Asistente'),
 ('Cafetera'),
 ('Microondas'),
+('Calefactor'),
 ('Secadora'),
+('Ventilador'),
 ('Otro');
 
 -- STAGE

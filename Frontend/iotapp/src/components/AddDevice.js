@@ -1,4 +1,4 @@
-import React, {Component} from 'react';
+import React from 'react';
 import ReactDOM from'react-dom';
 import PropTypes from 'prop-types';
 import Popup from 'reactjs-popup';
@@ -89,8 +89,8 @@ class GenerateDevice extends React.Component{
 
   insertDevice(name, type, room){
     this.deleteAlert();
-      if(type != ''){
-        if(name != ''){
+      if(type !== ''){
+        if(name !== ''){
           this.checkName(name, type, room);
         }
         else{
@@ -119,9 +119,9 @@ class GenerateDevice extends React.Component{
         } modal>
           {close => (
             <div className="modal">
-              <a className="close" onClick={close}>
+              <href className="close" onClick={close}>
                 &times;
-              </a>           
+              </href>           
               <div className="header"> AÑADIR NUEVO DISPOSITIVO </div>
               <div className="content">
 
@@ -217,6 +217,27 @@ class GenerateDevice extends React.Component{
                             <label class="for-checkbox-tools" for="tool-14">
                             <img className="icon-size" src={require('../icons/dispositivos/Microondas.png')} alt="Icon"/>
                             Microondas
+                            </label>
+
+                            <input class="checkbox-tools" type="radio" name="tools" id="tool-15"
+                            value="15" checked={this.state.type === "15"} onChange={this.changeRadio}></input>
+                            <label class="for-checkbox-tools" for="tool-15">
+                            <img className="icon-size" src={require('../icons/dispositivos/Microondas.png')} alt="Icon"/>
+                            Calefactor
+                            </label>
+
+                            <input class="checkbox-tools" type="radio" name="tools" id="tool-16"
+                            value="16" checked={this.state.type === "16"} onChange={this.changeRadio}></input>
+                            <label class="for-checkbox-tools" for="tool-16">
+                            <img className="icon-size" src={require('../icons/dispositivos/Secadora.png')} alt="Icon"/>
+                            Secadora
+                            </label>
+
+                            <input class="checkbox-tools" type="radio" name="tools" id="tool-17"
+                            value="17" checked={this.state.type === "17"} onChange={this.changeRadio}></input>
+                            <label class="for-checkbox-tools" for="tool-17">
+                            <img className="icon-size" src={require('../icons/dispositivos/Ventilador.png')} alt="Icon"/>
+                            Ventilador
                             </label>
                   </div>		
 

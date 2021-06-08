@@ -3,17 +3,62 @@ const path = require('path');
 const fetch = require('node-fetch');
 const moment = require('moment');
 const parse = require('csv-parse/lib/sync');
+const stringify = require('csv-stringify/lib/sync');
+
+const generateData = async (offset) => {
+    let response = await fetch('http://localhost:5000/devices');
+    response = await response.json();
+
+    const start = moment().subtract(offset, 'month').startOf('month');
+    let end = moment().subtract(offset, 'month').endOf('month');
+    const now = moment();
+    if(now.isBefore(end)){
+        end = now;
+    }
+
+    const devices = response.items;
+    const records = devices.map((device) => {
+        const record = [];
+        for(let hour = moment(start); hour.isBefore(end); hour = hour.add(1, 'hour')){
+            record.push({
+                date: hour.toDate(),
+                consumption: Math.floor(Math.random() * 100) + 1
+            });
+        }
+
+        return record;
+    });
+    records.forEach((record, index) => {
+        const recordString = stringify(record, {
+            header: true
+        });
+        fs.writeFileSync(`src/data/${start.format('YYYY-MM')}-${devices[index].id}.csv`, recordString);
+    });
+};
 
 exports.devicesMonthly = async (req, res) => {
+    await generateData(0);
     try{
         let response = await fetch('http://localhost:5000/devices');
         response = await response.json();
 
         const devices = response.items;
         let columns = ['day'];
+        
         const records = devices.filter((device) => {
             return req.query.room == -1 || device.room_id == req.query.room;
         }).map((device) => {
+            var getData = (filename) =>{
+                const filePath = path.join(__dirname, `../data/${filename}.csv`);
+                const fileBuffer = fs.readFileSync(filePath);
+                const fileString = fileBuffer.toString()
+                    .split('\n')
+                    .map(e => e.trim())
+                    .map(e => e.split(',').map(e => e.trim()))
+                    .flat();
+                return fileString
+            }
+            var arr = [];
             let type;
             switch(device.type){
                 case 1:
@@ -30,6 +75,7 @@ exports.devicesMonthly = async (req, res) => {
                     break;
                 case 5:
                     type = 'Clima';
+                    arr = getData('aireAcondicionado');
                     break;
                 case 6:
                     type = 'Impresoras';
@@ -52,34 +98,55 @@ exports.devicesMonthly = async (req, res) => {
                 case 14:
                     type = 'Microondas';
                     break;
+                case 15:
+                    type = 'Calefactor';
+                    arr = getData('calefactor');
+                    break;
+                case 16:
+                    type = 'Secadora';
+                    arr = getData('secadora')
+                    break;
+                case 17:
+                    type = 'Ventilador';
+                    arr = getData('ventilador');
+                    break;
             }
             if(!columns.includes(type)){
                 columns.push(type);
             }
+            var recordPath = path.join(__dirname, `../data/${req.query.month}-${device.id}.csv`);
+            var recordBuffer = fs.readFileSync(recordPath);
+            var recordString = recordBuffer.toString();
 
-            const recordPath = path.join(__dirname, `../data/${req.query.month}-${device.id}.csv`);
-            const recordBuffer = fs.readFileSync(recordPath);
-            const recordString = recordBuffer.toString();
-
-            const record = parse(recordString, {
+            var record = parse(recordString, {
                 columns: true
             });
-
-            return record.map((entry) => {
-                return {
-                    date: new Date(parseInt(entry.date)),
-                    consumption: parseInt(entry.consumption),
-                    type
-                };
+            
+            return record.map((entry, index) => {
+                if(arr.length === 0){
+                    return {
+                        date: new Date(parseInt(entry.date)),
+                        consumption: parseInt(entry.consumption),
+                        type
+                    };
+                }else{
+                    return {
+                        date: new Date(parseInt(entry.date)),
+                        consumption: parseInt(arr[index]),
+                        type
+                    };
+                }
+                
             });
         });
-
         const days = {};
+        
         records.flat().forEach((entry) => {
             const day = moment(entry.date).startOf('day').format('DD');
             days[day] = days[day] || {};
             days[day][entry.type] = (days[day][entry.type] || 0) + entry.consumption;
         });
+        
         Object.keys(days).forEach((day) => {
             const sorted = {};
 
@@ -105,11 +172,13 @@ exports.devicesMonthly = async (req, res) => {
                 ...days[day]
             };
         });
-
+        
         const result = {
             data: formatted,
             columns
         }
+        //console.log(result);
+        console.log('WUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU')
 
         res.send(result);
     }catch(error){
@@ -121,6 +190,8 @@ exports.devicesMonthly = async (req, res) => {
 };
 
 exports.devicesWeekly = async (req, res) => {
+    await generateData(0);
+    console.log("Hola estoy en devices Weekly");
     try{
         let response = await fetch('http://localhost:5000/devices');
         response = await response.json();
@@ -132,15 +203,28 @@ exports.devicesWeekly = async (req, res) => {
         const endMonth = weekEnd.format('YYYY-MM')
         const months = [startMonth];
         if(endMonth != startMonth){
-            months.push(endMonth);
+            months.push(endMonth); 
+        }
+        
+        const devices = response.items;
+
+        var getData = (filename) =>{
+            const filePath = path.join(__dirname, `../data/${filename}.csv`);
+            const fileBuffer = fs.readFileSync(filePath);
+            const fileString = fileBuffer.toString()
+                .split('\n')
+                .map(e => e.trim())
+                .map(e => e.split(',').map(e => e.trim()))
+                .flat();
+            return fileString
         }
 
-        const devices = response.items;
         let columns = ['day'];
         const records = months.map((month) => {
             return devices.filter((device) => {
                 return req.query.room == -1 || device.room_id == req.query.room;
             }).map((device) => {
+                var arr = [];
                 let type;
                 switch(device.type){
                     case 1:
@@ -157,6 +241,7 @@ exports.devicesWeekly = async (req, res) => {
                         break;
                     case 5:
                         type = 'Clima';
+                        arr = getData('aireAcondicionado');
                         break;
                     case 6:
                         type = 'Impresoras';
@@ -179,11 +264,23 @@ exports.devicesWeekly = async (req, res) => {
                     case 14:
                         type = 'Microondas';
                         break;
+                    case 15:
+                        type = 'Calefactor';
+                        arr = getData('calefactor');
+                        break;
+                    case 16:
+                        type = 'Secadora';
+                        arr = getData('secadora')
+                        break;
+                    case 17:
+                        type = 'Ventilador';
+                        arr = getData('ventilador');
+                        break;
                 }
                 if(!columns.includes(type)){
                     columns.push(type);
                 }
-    
+                console.log("El mes" + month)
                 const recordPath = path.join(__dirname, `../data/${month}-${device.id}.csv`);
                 const recordBuffer = fs.readFileSync(recordPath);
                 const recordString = recordBuffer.toString();
@@ -192,12 +289,20 @@ exports.devicesWeekly = async (req, res) => {
                     columns: true
                 });
     
-                return record.map((entry) => {
-                    return {
-                        date: new Date(parseInt(entry.date)),
-                        consumption: parseInt(entry.consumption),
-                        type
-                    };
+                return record.map((entry, index) => {
+                    if(arr.length === 0){
+                        return {
+                            date: new Date(parseInt(entry.date)),
+                            consumption: parseInt(entry.consumption),
+                            type
+                        };
+                    }else{
+                        return {
+                            date: new Date(parseInt(entry.date)),
+                            consumption: arr[index],
+                            type
+                        };
+                    }
                 });
             });
         }).flat();
@@ -257,10 +362,12 @@ exports.devicesWeekly = async (req, res) => {
 };
 
 exports.roomsMonthly = async (req, res) => {
+    await generateData(0);
     try{
         let response = await fetch('http://localhost:5000/devices');
+        console.log("La respuesta mo: %O", response);
         response = await response.json();
-
+         
         const devices = response.items;
         const rooms = {};
         let total = 0;
@@ -301,10 +408,12 @@ exports.roomsMonthly = async (req, res) => {
 }
 
 exports.roomsWeekly = async (req, res) => {
+    console.log("Hola estoy en rooms Weekly");
+    await generateData(0);
     try{
         let response = await fetch('http://localhost:5000/devices');
         response = await response.json();
-
+        console.log(req.query);
         const weekStart = moment(req.query.week);
         const weekEnd = moment(req.query.week).add(6, 'days');
     
@@ -320,6 +429,7 @@ exports.roomsWeekly = async (req, res) => {
         let total = 0;
         months.forEach((month) => {
             devices.forEach((device) => {
+                console.log("El mes " + month)
                 const recordPath = path.join(__dirname, `../data/${month}-${device.id}.csv`);
                 const recordBuffer = fs.readFileSync(recordPath);
                 const recordString = recordBuffer.toString();
